@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # 1. The Storage Layer
+  postgres:
+    image: postgres:15
+    container_name: bike_share_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: bikeshare
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_new:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # 2. The Database UI
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_ui
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  # 3. The Orchestrator
+  airflow:
+    image: apache/airflow:2.8.1-python3.10
+    container_name: airflow_standalone
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=laukik
+      - _AIRFLOW_WWW_USER_PASSWORD=laukik
+      - _AIRFLOW_WWW_USER_ROLE=Admin
+      - _AIRFLOW_WWW_USER_EMAIL=laukik@example.com
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/opt/airflow/project
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    depends_on:
+      - postgres
+    command: >
+      bash -c "pip install -r /opt/airflow/requirements.txt && airflow standalone"
+
+  # 4. The AI Backend (FastAPI) - NEW!
+  api:
+    image: python:3.10-slim
+    container_name: fastapi_server
+    volumes:
+      - .:/app
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    command: >
+      bash -c "pip install fastapi uvicorn pydantic pandas scikit-learn joblib psycopg2-binary && uvicorn app:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      - postgres
+
+  # 5. The User Interface (Streamlit) - NEW!
+  frontend:
+    image: python:3.10-slim
+    container_name: streamlit_ui
+    volumes:
+      - .:/app
+    working_dir: /app
+    ports:
+      - "8501:8501"
+    command: >
+      bash -c "pip install streamlit requests pandas pydeck && streamlit run frontend.py --server.port=8501 --server.address=0.0.0.0"
+    depends_on:
+      - api
+
+volumes:
+  pgdata_new:

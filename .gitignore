@@ -1,0 +1,20 @@
+Environments
+
+venv/
+env/
+.env
+
+Python Caches
+
+pycache/
+*.pyc
+*.pyo
+
+Docker
+
+.dockerignore
+
+OS generated files
+
+.DS_Store
+Thumbs.db
